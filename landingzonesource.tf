@@ -1,5 +1,6 @@
+
 /******************************************
-	VPC configuration
+  VPC configuration
  *****************************************/
 resource "google_compute_network" "network" {
   name                                      = var.network_name
@@ -15,7 +16,7 @@ resource "google_compute_network" "network" {
 }
 
 /******************************************
-	Shared VPC
+  Shared VPC
  *****************************************/
 resource "google_compute_shared_vpc_host_project" "shared_vpc_host" {
   provider = google-beta
@@ -33,7 +34,7 @@ locals {
 
 
 /******************************************
-	Subnet configuration
+  Subnet configuration
  *****************************************/
 resource "google_compute_subnetwork" "subnetwork" {
 
@@ -84,7 +85,7 @@ locals {
 }
 
 /******************************************
-	Routes
+  Routes
  *****************************************/
 resource "google_compute_route" "route" {
   for_each = local.routes
@@ -106,4 +107,3 @@ resource "google_compute_route" "route" {
 
   depends_on = [var.module_depends_on]
 }
-
