@@ -1,12 +1,3 @@
-variable "project_id" {
-  description = "The ID of the project where this VPC will be created"
-  type        = string
-}
-
-variable "network_name" {
-  description = "The name of the network being created"
-  type        = string
-}
 
 variable "routing_mode" {
   type        = string
@@ -62,16 +53,6 @@ variable "network_firewall_policy_enforcement_order" {
   description = "Set the order that Firewall Rules and Firewall Policies are evaluated. Valid values are `BEFORE_CLASSIC_FIREWALL` and `AFTER_CLASSIC_FIREWALL`. (default null or equivalent to `AFTER_CLASSIC_FIREWALL`)"
 }
 
-variable "project_id" {
-  description = "The ID of the project where subnets will be created"
-  type        = string
-}
-
-variable "network_name" {
-  description = "The name of the network where subnets will be created"
-  type        = string
-}
-
 variable "subnets" {
   type = list(object({
     subnet_name                      = string
@@ -122,3 +103,4 @@ variable "module_depends_on" {
   type        = list(any)
   default     = []
 }
+
