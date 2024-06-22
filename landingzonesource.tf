@@ -1,30 +1,19 @@
+/**
+ * Copyright 2019 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-/******************************************
-  VPC configuration
- *****************************************/
-resource "google_compute_network" "network" {
-  name                                      = var.network_name
-  auto_create_subnetworks                   = var.auto_create_subnetworks
-  routing_mode                              = var.routing_mode
-  project                                   = var.project_id
-  description                               = var.description
-  delete_default_routes_on_create           = var.delete_default_internet_gateway_routes
-  mtu                                       = var.mtu
-  enable_ula_internal_ipv6                  = var.enable_ipv6_ula
-  internal_ipv6_range                       = var.internal_ipv6_range
-  network_firewall_policy_enforcement_order = var.network_firewall_policy_enforcement_order
-}
-
-/******************************************
-  Shared VPC
- *****************************************/
-resource "google_compute_shared_vpc_host_project" "shared_vpc_host" {
-  provider = google-beta
-
-  count      = var.shared_vpc_host ? 1 : 0
-  project    = var.project_id
-  depends_on = [google_compute_network.network]
-}
 locals {
   subnets = {
     for x in var.subnets :
@@ -34,76 +23,37 @@ locals {
 
 
 /******************************************
-  Subnet configuration
+	Subnet configuration
  *****************************************/
 resource "google_compute_subnetwork" "subnetwork" {
-
-  for_each                   = local.subnets
-  name                       = each.value.subnet_name
-  ip_cidr_range              = each.value.subnet_ip
-  region                     = each.value.subnet_region
-  private_ip_google_access   = lookup(each.value, "subnet_private_access", "false")
-  private_ipv6_google_access = lookup(each.value, "subnet_private_ipv6_access", null)
+  for_each                 = local.subnets
+  name                     = each.value.subnet_name
+  ip_cidr_range            = each.value.subnet_ip
+  region                   = each.value.subnet_region
+  private_ip_google_access = lookup(each.value, "subnet_private_access", "false")
   dynamic "log_config" {
-    for_each = coalesce(lookup(each.value, "subnet_flow_logs", null), false) ? [{
-      aggregation_interval = each.value.subnet_flow_logs_interval
-      flow_sampling        = each.value.subnet_flow_logs_sampling
-      metadata             = each.value.subnet_flow_logs_metadata
-      filter_expr          = each.value.subnet_flow_logs_filter
-      metadata_fields      = each.value.subnet_flow_logs_metadata_fields
+    for_each = lookup(each.value, "subnet_flow_logs", false) ? [{
+      aggregation_interval = lookup(each.value, "subnet_flow_logs_interval", "INTERVAL_5_SEC")
+      flow_sampling        = lookup(each.value, "subnet_flow_logs_sampling", "0.5")
+      metadata             = lookup(each.value, "subnet_flow_logs_metadata", "INCLUDE_ALL_METADATA")
     }] : []
     content {
       aggregation_interval = log_config.value.aggregation_interval
       flow_sampling        = log_config.value.flow_sampling
       metadata             = log_config.value.metadata
-      filter_expr          = log_config.value.filter_expr
-      metadata_fields      = log_config.value.metadata == "CUSTOM_METADATA" ? log_config.value.metadata_fields : null
     }
   }
   network     = var.network_name
   project     = var.project_id
   description = lookup(each.value, "description", null)
-  dynamic "secondary_ip_range" {
-    for_each = contains(keys(var.secondary_ranges), each.value.subnet_name) == true ? var.secondary_ranges[each.value.subnet_name] : []
-
-    content {
-      range_name    = secondary_ip_range.value.range_name
-      ip_cidr_range = secondary_ip_range.value.ip_cidr_range
-    }
-  }
-
-  purpose          = lookup(each.value, "purpose", null)
-  role             = lookup(each.value, "role", null)
-  stack_type       = lookup(each.value, "stack_type", null)
-  ipv6_access_type = lookup(each.value, "ipv6_access_type", null)
-}
-locals {
-  routes = {
-    for i, route in var.routes :
-    lookup(route, "name", format("%s-%s-%d", lower(var.network_name), "route", i)) => route
-  }
-}
-
-/******************************************
-  Routes
- *****************************************/
-resource "google_compute_route" "route" {
-  for_each = local.routes
-
-  project = var.project_id
-  network = var.network_name
-
-  name                   = each.key
-  description            = lookup(each.value, "description", null)
-  tags                   = compact(split(",", lookup(each.value, "tags", "")))
-  dest_range             = lookup(each.value, "destination_range", null)
-  next_hop_gateway       = lookup(each.value, "next_hop_internet", "false") == "true" ? "default-internet-gateway" : null
-  next_hop_ip            = lookup(each.value, "next_hop_ip", null)
-  next_hop_instance      = lookup(each.value, "next_hop_instance", null)
-  next_hop_instance_zone = lookup(each.value, "next_hop_instance_zone", null)
-  next_hop_vpn_tunnel    = lookup(each.value, "next_hop_vpn_tunnel", null)
-  next_hop_ilb           = lookup(each.value, "next_hop_ilb", null)
-  priority               = lookup(each.value, "priority", null)
-
-  depends_on = [var.module_depends_on]
+  secondary_ip_range = [
+    for i in range(
+      length(
+        contains(
+        keys(var.secondary_ranges), each.value.subnet_name) == true
+        ? var.secondary_ranges[each.value.subnet_name]
+        : []
+    )) :
+    var.secondary_ranges[each.value.subnet_name][i]
+  ]
 }
